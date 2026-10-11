@@ -15,3 +15,14 @@ python -m venv .venv
 source .venv/bin/activate  # En Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
+
+## Uso
+
+```
+pytest
+ruff check .
+```
+
+## Estado
+
+En desarrollo.
