@@ -3,19 +3,34 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
 from gestor_tareas.modelos import EstadoTarea, Tarea
 
 
+@dataclass
+class _EstadoPersistido:
+    """Formato del archivo en disco"""
+    siguiente_id: int
+    tareas: list[Tarea]
+
+
 class AlmacenTareas:
     """Gestiona la lectura y escritura de tareas en un archivo JSON.
+
+    El archivo tiene el formato:
+        {
+            "siguiente_id": 4,
+            "tareas": [ ... ]
+        }
 
     Attributes:
         ruta: Ruta al archivo JSON donde se persisten las tareas.
     """
+
+    VERSION_ESQUEMA = 1
 
     def __init__(self, ruta: Path) -> None:
         """Inicializa el almacén.
@@ -25,17 +40,18 @@ class AlmacenTareas:
         """
         self.ruta = ruta
 
-    def cargar(self) -> list[Tarea]:
+    def cargar(self) -> tuple[int, list[Tarea]]:
         """Carga las tareas desde el archivo.
 
         Returns:
-            Lista de tareas. Lista vacía si el archivo no existe.
+            Tupla (siguiente_id, tareas). Si el archivo no existe,
+            devuelve (1, []).
 
         Raises:
             ValueError: Si el archivo está corrupto o mal formado.
         """
         if not self.ruta.exists():
-            return []
+            return 1, []
 
         try:
             contenido = self.ruta.read_text(encoding="utf-8")
@@ -45,22 +61,39 @@ class AlmacenTareas:
                 f"El archivo {self.ruta} no contiene JSON válido: {exc}"
             ) from exc
 
-        if not isinstance(datos, list):
-            tipo_recibido = type(datos).__name__
+        siguiente_id = datos.get("siguiente_id")
+        if not isinstance(siguiente_id, int):
+            tipo = type(siguiente_id).__name__
             raise ValueError(
-                f"Se esperaba una lista en {self.ruta}, se encontró {tipo_recibido}"
+                f"Se esperaba un entero como 'siguiente_id' en {self.ruta}, "
+                f"se encontró {tipo}"
             )
 
-        return [self._dict_a_tarea(d) for d in datos]
+        tareas_raw = datos.get("tareas")
+        if not isinstance(tareas_raw, list):
+            tipo = type(tareas_raw).__name__
+            raise ValueError(
+                f"Se esperaba una lista como 'tareas' en {self.ruta}, "
+                f"se encontró {tipo}"
+            )
 
-    def guardar(self, tareas: list[Tarea]) -> None:
+        siguiente_id = datos["siguiente_id"]
+        tareas_raw = datos["tareas"]
+        tareas = [self._dict_a_tarea(d) for d in tareas_raw]
+
+        return siguiente_id, tareas
+
+    def guardar(self, siguiente_id: int, tareas: list[Tarea]) -> None:
         """Guarda las tareas en el archivo.
 
         Args:
             tareas: Lista de tareas a persistir.
         """
         self.ruta.parent.mkdir(parents=True, exist_ok=True)
-        datos = [self._tarea_a_dict(t) for t in tareas]
+        datos = {
+            "siguiente_id": siguiente_id,
+            "tareas": [self._tarea_a_dict(t) for t in tareas],
+        }
         self.ruta.write_text(
             json.dumps(datos, indent=2, ensure_ascii=False, default=str),
             encoding="utf-8",

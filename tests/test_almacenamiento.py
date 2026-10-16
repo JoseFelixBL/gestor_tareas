@@ -23,18 +23,21 @@ def almacen(ruta_temporal: Path) -> AlmacenTareas:
 class TestCargar:
     """Tests de carga desde disco."""
 
-    def test_archivo_inexistente_devuelve_lista_vacia(
+    def test_archivo_inexistente_devuelve_estado_inicial(
         self, almacen: AlmacenTareas
     ) -> None:
-        assert almacen.cargar() == []
+        siguiente_id, tareas = almacen.cargar()
+        assert siguiente_id == 1
+        assert tareas == []
 
     def test_cargar_tareas_guardadas(
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
         tareas = [Tarea(id=1, titulo="A"), Tarea(id=2, titulo="B")]
-        almacen.guardar(tareas)
+        siguiente_id = 3
+        almacen.guardar(siguiente_id, tareas)
 
-        recuperadas = almacen.cargar()
+        _, recuperadas = almacen.cargar()
         assert len(recuperadas) == 2
         assert recuperadas[0].titulo == "A"
         assert recuperadas[1].titulo == "B"
@@ -46,11 +49,28 @@ class TestCargar:
         with pytest.raises(ValueError, match="JSON válido"):
             almacen.cargar()
 
+    def test_json_no_entero_lanza_error(
+        self, almacen: AlmacenTareas, ruta_temporal: Path
+    ) -> None:
+        ruta_temporal.write_text('{"siguiente_id": "1", "tareas": "no es lista"}',
+                                 encoding="utf-8")
+        with pytest.raises(ValueError, match="entero"):
+            almacen.cargar()
+
     def test_json_no_lista_lanza_error(
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
-        ruta_temporal.write_text('{"no": "es lista"}', encoding="utf-8")
+        ruta_temporal.write_text('{"siguiente_id": 2, "tareas": "no es lista"}',
+                                  encoding="utf-8")
         with pytest.raises(ValueError, match="lista"):
+            almacen.cargar()
+
+    def test_json_sin_siguiente_id(
+        self, almacen: AlmacenTareas, ruta_temporal: Path
+    ) -> None:
+        ruta_temporal.write_text('{"tareas": [{"id": 1, "titulo": "A"}]}',
+                                 encoding="utf-8")
+        with pytest.raises(ValueError, match="siguiente_id"):
             almacen.cargar()
 
 
@@ -61,16 +81,20 @@ class TestGuardar:
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
         assert not ruta_temporal.exists()
-        almacen.guardar([Tarea(id=1, titulo="A")])
+        siguiente_id = 2
+        almacen.guardar(siguiente_id, [Tarea(id=1, titulo="A")])
         assert ruta_temporal.exists()
 
     def test_roundtrip_preserva_datos(
         self, almacen: AlmacenTareas
     ) -> None:
         original = Tarea(id=5, titulo="Test", descripcion="detalle")
-        almacen.guardar([original])
+        siguiente_id = 6
+        almacen.guardar(siguiente_id, [original])
 
-        recuperada = almacen.cargar()[0]
+        recuperado_id, recuperadas_tareas = almacen.cargar()
+        assert recuperado_id == siguiente_id
+        recuperada = recuperadas_tareas[0]
         assert recuperada.id == original.id
         assert recuperada.titulo == original.titulo
         assert recuperada.descripcion == original.descripcion
@@ -81,8 +105,10 @@ class TestGuardar:
     ) -> None:
         tarea = Tarea(id=1, titulo="A")
         tarea.completar()
-        almacen.guardar([tarea])
+        siguiente_id = 2
+        almacen.guardar(siguiente_id, [tarea])
 
-        recuperada = almacen.cargar()[0]
+        _, recuperadas_tareas = almacen.cargar()
+        recuperada = recuperadas_tareas[0]
         assert recuperada.esta_completada is True
         assert recuperada.completada_en is not None
