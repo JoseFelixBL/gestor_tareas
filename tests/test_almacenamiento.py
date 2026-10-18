@@ -52,24 +52,27 @@ class TestCargar:
     def test_json_no_entero_lanza_error(
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
-        ruta_temporal.write_text('{"siguiente_id": "1", "tareas": "no es lista"}',
-                                 encoding="utf-8")
+        ruta_temporal.write_text(
+            '{"siguiente_id": "1", "tareas": "no es lista"}', encoding="utf-8"
+        )
         with pytest.raises(ValueError, match="entero"):
             almacen.cargar()
 
     def test_json_no_lista_lanza_error(
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
-        ruta_temporal.write_text('{"siguiente_id": 2, "tareas": "no es lista"}',
-                                  encoding="utf-8")
+        ruta_temporal.write_text(
+            '{"siguiente_id": 2, "tareas": "no es lista"}', encoding="utf-8"
+        )
         with pytest.raises(ValueError, match="lista"):
             almacen.cargar()
 
     def test_json_sin_siguiente_id(
         self, almacen: AlmacenTareas, ruta_temporal: Path
     ) -> None:
-        ruta_temporal.write_text('{"tareas": [{"id": 1, "titulo": "A"}]}',
-                                 encoding="utf-8")
+        ruta_temporal.write_text(
+            '{"tareas": [{"id": 1, "titulo": "A"}]}', encoding="utf-8"
+        )
         with pytest.raises(ValueError, match="siguiente_id"):
             almacen.cargar()
 
@@ -85,9 +88,7 @@ class TestGuardar:
         almacen.guardar(siguiente_id, [Tarea(id=1, titulo="A")])
         assert ruta_temporal.exists()
 
-    def test_roundtrip_preserva_datos(
-        self, almacen: AlmacenTareas
-    ) -> None:
+    def test_roundtrip_preserva_datos(self, almacen: AlmacenTareas) -> None:
         original = Tarea(id=5, titulo="Test", descripcion="detalle")
         siguiente_id = 6
         almacen.guardar(siguiente_id, [original])
@@ -100,9 +101,7 @@ class TestGuardar:
         assert recuperada.descripcion == original.descripcion
         assert recuperada.estado is original.estado
 
-    def test_roundtrip_tarea_completada(
-        self, almacen: AlmacenTareas
-    ) -> None:
+    def test_roundtrip_tarea_completada(self, almacen: AlmacenTareas) -> None:
         tarea = Tarea(id=1, titulo="A")
         tarea.completar()
         siguiente_id = 2

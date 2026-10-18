@@ -13,6 +13,7 @@ from gestor_tareas.modelos import EstadoTarea, Tarea
 @dataclass
 class _EstadoPersistido:
     """Formato del archivo en disco"""
+
     siguiente_id: int
     tareas: list[Tarea]
 
